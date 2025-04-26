@@ -1,118 +1,115 @@
-const fs = require('fs');
-const path = require('path');
-const similarity = require('string-similarity');
-const axios = require('axios');
+import * as fs from "node:fs";
+import path from "path";
+import similarity from "string-similarity";
+import axios from "axios";
+import { config } from "./configs/config.js";
 
-// 
-// config
-// 
-
-const songs = JSON.parse(fs.readFileSync('assets/songs.json', 'utf-8'));
-const dirWithFilesToSort = 'audio'
-const aiUrl = "http://localhost:3000"
-const minSimilary = 0.4
-const stepSimilary = 0.01
-
-// 
-// 
-// 
+const songs = JSON.parse(fs.readFileSync(config.referencePath, "utf-8"));
 
 const getFilesToSort = () => {
-    const res = fs.readdirSync(dirWithFilesToSort)
-    return res.reverse()
-}
+  const res = fs.readdirSync(config.sourceDir);
+  return res.reverse();
+};
 
-const getTextWithFile = async (filename) => {
-    try {
-        const res = await axios({
-            method: 'POST',
-            url: `${aiUrl}/transcribe`,
-            data: { filename }
-        })
+const getTextWithFile = async filename => {
+  try {
+    const res = await axios({
+      method: "POST",
+      url: `${config.url}/transcribe`,
+      data: { filename },
+    });
 
-        return res.data.text
-    } catch (err) {
-        console.error(err)
-    }
-}
+    return res.data.text;
+  } catch (err) {
+    throw err
+  }
+};
 
-const findSimilaryText = (textToFind) => {
-    const songsLength = songs.length
+const findSimilaryText = textToFind => {
+  const songsLength = songs.length;
 
-    for (let i = 0; i < songsLength; i++) {
-        const res = similarity.compareTwoStrings(songs[i].text, textToFind)
+  for (let i = 0; i < songsLength; i++) {
+    const res = similarity.compareTwoStrings(songs[i].text, textToFind);
 
-        if (res < minSimilary) {
-            continue
-        }
-
-        let j = 1.0;
-        while (j >= minSimilary) {
-            if (res >= j) {
-                return songs[i].target
-            }
-
-            j = Math.round((j - stepSimilary) * 100) / 100;
-        }
+    if (res < config.minSimilary) {
+      continue;
     }
 
-    return null
-}
+    let j = 1.0;
+    while (j >= config.minSimilary) {
+      if (res >= j) {
+        return songs[i].target;
+      }
+
+      j = Math.round((j - config.stepSimilary) * 100) / 100;
+    }
+  }
+
+  return null;
+};
 
 const moveFile = (filename, moveToPath) => {
-    const outputFile = path.join(dirWithFilesToSort, filename);
-    const newPath = path.join(moveToPath, filename);
+  const outputFile = path.join(config.sourceDir, filename);
+  const newPath = path.join(moveToPath, filename);
 
-    if (!fs.existsSync(outputFile)) {
-        return;
-    }
+  if (!fs.existsSync(outputFile)) {
+    return;
+  }
 
-    if (!fs.existsSync(moveToPath)) {
-        fs.mkdirSync(moveToPath, { recursive: true });
-    }
+  if (!fs.existsSync(moveToPath)) {
+    fs.mkdirSync(moveToPath, { recursive: true });
+  }
 
-    fs.rename(outputFile, newPath, (err) => {
-        if (err) throw err
-    })
-}
+  fs.rename(outputFile, newPath, err => {
+    if (err) throw err;
+  });
+};
 
 const createTime = () => {
-    const d = new Date()
+  const d = new Date();
 
-    const h = d.getHours().toString().padStart(2, '0');
-    const m = d.getMinutes().toString().padStart(2, '0');
-    const s = d.getSeconds().toString().padStart(2, '0');
+  const h = d.getHours().toString().padStart(2, "0");
+  const m = d.getMinutes().toString().padStart(2, "0");
+  const s = d.getSeconds().toString().padStart(2, "0");
 
-    return `${h}:${m}:${s}`
-}
+  return `${h}:${m}:${s}`;
+};
 
-// 
-// 
-// 
+//
+//
+//
 
 const init = async () => {
-    try {
-        const filesToSort = getFilesToSort()
-        const filesToSortLength = filesToSort.length
+  try {
+    const filesToSort = getFilesToSort();
+    const filesToSortLength = filesToSort.length;
 
-        for (let i = 0; i < filesToSortLength; i++) {
-            
-            const fileText = await getTextWithFile(filesToSort[i])
-            const moveTarget = findSimilaryText(fileText)
-            
-            if (!moveTarget) {
-                console.log(`No match "${i}" with "${filesToSortLength}", time: ${createTime()}, name: ${filesToSort[i]}`)
-                continue
-            }
-            
-            moveFile(filesToSort[i], moveTarget)
-            console.log(`Match "${i}" with "${filesToSortLength}", time: ${createTime()}, name: ${filesToSort[i]}, target: ${moveTarget}`)
-        }
+    for (let i = 0; i < filesToSortLength; i++) {
+      const fileText = await getTextWithFile(filesToSort[i]);
+      const moveTarget = findSimilaryText(fileText);
 
-        console.log('Done')
-    } catch (err) {
-        console.error(err)
+      if (!moveTarget) {
+        console.log(
+          `No match "${i}" with "${filesToSortLength}", time: ${createTime()}, name: ${
+            filesToSort[i]
+          }`,
+        );
+        continue;
+      }
+
+      moveFile(filesToSort[i], moveTarget);
+
+      console.log(
+        `Match "${i}" with "${filesToSortLength}", time: ${createTime()}, name: ${
+          filesToSort[i]
+        }, target: ${moveTarget}`,
+      );
     }
-}
 
-init()
+    console.log("Done");
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+init();

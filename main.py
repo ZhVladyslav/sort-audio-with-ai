@@ -1,11 +1,11 @@
 from flask import Flask, request, jsonify
 import whisper
 import os
+from configs import Config
 
 app = Flask(__name__)
+config = Config()
 model = whisper.load_model("base")
-audio_dir = "audio"
-output = []
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
@@ -15,7 +15,7 @@ def transcribe():
     if not filename:
         return jsonify({"error": "File not found"}), 400
     
-    filepath = os.path.join(audio_dir, filename)
+    filepath = os.path.join(config.audio_dir, filename)
 
     if not os.path.exists(filepath):
         return jsonify({"error": "File not found"}), 400
@@ -28,4 +28,4 @@ def transcribe():
         })
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=3000)
+    app.run(host=config.host, port=config.port)
