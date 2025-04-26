@@ -1,6 +1,6 @@
 Config
-1. create dit "assets"
-2. create dit "audio"
+1. create dir "assets"
+2. create dir "audio"
 
 3. move in "audio" files that you want sort
 4. create "songs.json" in "assets" with whit structure
